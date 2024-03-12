@@ -1,8 +1,9 @@
-﻿using Azure.Messaging.EventHubs.Producer;
+﻿using System.Text;
+using System;
 using Azure.Storage.Blobs;
 using Newtonsoft.Json;
-using System.Text;
-using System;
+using Azure.Messaging.EventHubs.Producer;
+
 public class YourClass
 {
     private const string connectionString = "Endpoint=sb://amdocs-b2b.servicebus.windows.net/;SharedAccessKeyName=amdox-eventhub;SharedAccessKey=VWZ6DMYNQvbRSSuRIghlyg36XzXWdNC72+AEhFaXWGw=;EntityPath=amdox-eventhub";
@@ -11,21 +12,14 @@ public class YourClass
     private const string blobcontainerName = "amdox-container";
     private const string blobName = "initialdb.json";
 
-    public static void Main()
-    {
-        YourClass yourInstance = new YourClass();
-        yourInstance.StartTimer();
-        Console.ReadLine();
-    }
-
     public void StartTimer()
     {
         // Set up a timer to execute RunTask every minute
-        Timer timer = new Timer(RunTask, null, TimeSpan.Zero, TimeSpan.FromMinutes(1));
+        Timer timer = new Timer(RunTask, null, TimeSpan.Zero, TimeSpan.FromMinutes(30));
     }
     public void RunTask(object state)
     {
-        string filePath = @"C:\Users\Vishr\OneDrive\Desktop\newuserinput.json";
+        string filePath = @"C:\Users\vdeek\Downloads\userinput6.json";
         Task.Run(() => PostJsonFileAsync(filePath)).Wait();
     }
 
