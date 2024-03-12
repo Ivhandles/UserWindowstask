@@ -1,8 +1,15 @@
-﻿using System.Text;
-using System;
+﻿using Azure.Messaging.EventHubs.Consumer;
+using Azure.Messaging.EventHubs.Producer;
 using Azure.Storage.Blobs;
 using Newtonsoft.Json;
-using Azure.Messaging.EventHubs.Producer;
+using System;
+using System.IO;
+using System.Text;
+using System.Threading.Tasks;
+using System.Collections.Generic;
+
+using Azure.Messaging.EventHubs.Processor;
+using Azure.Messaging.EventHubs;
 
 public class YourClass
 {
@@ -12,6 +19,8 @@ public class YourClass
     private const string blobcontainerName = "amdox-container";
     private const string blobName = "initialdb.json";
 
+
+
     public void StartTimer()
     {
         // Set up a timer to execute RunTask every minute
@@ -19,7 +28,7 @@ public class YourClass
     }
     public void RunTask(object state)
     {
-        string filePath = @"C:\Users\vdeek\Downloads\userinput6.json";
+        string filePath = @"C:/Users/Theje/Documents/Amdox/userinput.json";
         Task.Run(() => PostJsonFileAsync(filePath)).Wait();
     }
 
@@ -48,7 +57,12 @@ public class YourClass
 
                 List<Initialjsonstruct> unsyncedList = pollingblobData.Where(item => !item.IsSynced).ToList();
 
-                var eventStatus = PostEvent(unsyncedList);
+                await PostEvent(unsyncedList);
+                var events = await PollEventHubAsync(async eventData =>
+                {
+                    // Your custom logic to handle the event (e.g., store it in a variable)
+                    Console.WriteLine("Event received: " + eventData);
+                });
             }
         }
         catch (Exception ex)
@@ -58,6 +72,60 @@ public class YourClass
             // Optionally rethrow the exception if you want to propagate it
         }
     }
+
+
+
+    public static async Task<List<string>> PollEventHubAsync(Func<string, Task> eventHandler)
+    {
+        var _storageConnectionString = "DefaultEndpointsProtocol=https;AccountName=amdox;AccountKey=EsOwsWTExYkxhSDuyhUJ1Ls0yCLjKI/ULQo92BGPXs2xgyy0nQsOCqwRdY3g9FKAogOFGYV6xrzH+AStDwsqaw==;EndpointSuffix=core.windows.net";
+        var BlobcontainerName = "amdox-container";
+        var replyeventconnectionstring = "Endpoint=sb://amdocs-b2b.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=9jt/gAfCNaubzyAXQ/d0WMq2KNXLwhJpn+AEhHsewzk=";
+        var replyeventhubname = "amdox-event-statushub";
+        var receivedEvents = new List<string>();
+        BlobContainerClient storageClient = new
+       BlobContainerClient(
+           _storageConnectionString,
+           BlobcontainerName
+       );
+
+        var eventProcessorClient = new EventProcessorClient(
+            storageClient,
+            "$Default",
+            replyeventconnectionstring,
+            replyeventhubname);
+
+        eventProcessorClient.ProcessEventAsync += ProcessEventHandler;
+        eventProcessorClient.ProcessErrorAsync += ProcessErrorHandler;
+        await eventProcessorClient.StartProcessingAsync();
+        Console.WriteLine("Started the processor");
+        await Task.Delay(TimeSpan.FromSeconds(30));
+        await eventProcessorClient.StopProcessingAsync();
+        Console.WriteLine("Stop the processor");
+        Console.WriteLine("these are the received events", receivedEvents);
+        return receivedEvents;
+
+    }
+
+
+
+
+    static async Task ProcessEventHandler(ProcessEventArgs eventArgs)
+    {
+        Console.WriteLine("\tReceived event: {0}",
+            Encoding.UTF8.GetString(eventArgs.Data.Body.ToArray()));
+
+        await eventArgs.UpdateCheckpointAsync(eventArgs.CancellationToken);
+    }
+
+    static Task ProcessErrorHandler(ProcessErrorEventArgs eventArgs)
+    {
+        Console.WriteLine($"\tPartition '{eventArgs.PartitionId}': an unhandled exception was encountered. This was not expected to happen.");
+
+        Console.WriteLine(eventArgs.Exception.Message);
+
+        return Task.CompletedTask;
+    }
+
 
     public async Task<List<Initialjsonstruct>> ReadJsonFromBlobAsync()
     {
