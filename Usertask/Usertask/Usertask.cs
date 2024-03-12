@@ -68,8 +68,8 @@ public class YourClass
                 var pollingblobData = await ReadJsonFromBlobAsync();
 
                 List<Initialjsonstruct> unsyncedList = pollingblobData.Where(item => !item.IsSynced).ToList();
-/*
-                await PostEvent(unsyncedList);*/
+
+                await PostEvent(unsyncedList);
                 var events = await PollEventHubAsync(async eventData =>
                 {
                     // Your custom logic to handle the event (e.g., store it in a variable)
@@ -112,7 +112,7 @@ public class YourClass
         eventProcessorClient.ProcessErrorAsync += ProcessErrorHandler;
         await eventProcessorClient.StartProcessingAsync();
         Console.WriteLine("Started the processor");
-        await Task.Delay(TimeSpan.FromMinutes(2));
+        await Task.Delay(TimeSpan.FromMinutes(8));
         await eventProcessorClient.StopProcessingAsync();
         Console.WriteLine("Stop the processor");
 
@@ -147,7 +147,7 @@ public class YourClass
 
                 // Add the event data to the successEvents list
                 await AddToSuccessEventsAsync(eventData);
-
+              
                 // Asynchronously update the checkpoint
                 await eventArgs.UpdateCheckpointAsync(eventArgs.CancellationToken);
             }
@@ -156,6 +156,7 @@ public class YourClass
                 // Skip processing if the event does not meet the criteria
                 Console.WriteLine("\tSkipped event: {0}", eventData);
             }
+            Console.WriteLine("Total success events count: {0}", successEvents.Count);
         }
         catch (Exception ex)
         {
@@ -175,15 +176,14 @@ public class YourClass
         if (!string.IsNullOrEmpty(userGuid))
         {
             userGuidList.Add(userGuid);
-            Console.WriteLine("UserGuid added to the list: {0}", userGuid);
+
         }
 
-        Console.WriteLine("Total success events count: {0}", successEvents.Count);
+      
 
 
         retriveddata = await ReadJsonFromBlobAsync();
-        string jsonRetrievedData = JsonSerializer.Serialize(retriveddata);
-        Console.WriteLine("this is retrive", jsonRetrievedData);
+     
         foreach (var entry in retriveddata)
         {
             if (userGuidList.Contains(entry.UserGuid))
@@ -196,6 +196,7 @@ public class YourClass
 
 
         await UpdateJsonInBlobAsync(retriveddata);
+      
     }
 
     public async Task UpdateJsonInBlobAsync(List<Initialjsonstruct> updatedData)
@@ -217,8 +218,8 @@ public class YourClass
             {
                 // Upload the updated data to the blob, overwriting the existing content
                 await blobClient.UploadAsync(stream, true);
+                Console.WriteLine($"User data updated successfully in blob storage.");
 
-                Console.WriteLine($"Data updated successfully in blob storage.");
             }
         }
         catch (Exception ex)
@@ -230,13 +231,13 @@ public class YourClass
 
     public string GetUserGuidFromEventData(string eventData)
     {
-
         var keyIndex = eventData.IndexOf("\"Key\":\"") + 7;
-        var userGuidStartIndex = keyIndex + 1;
+        var userGuidStartIndex = keyIndex;
         var userGuidEndIndex = eventData.IndexOf("\"", userGuidStartIndex);
 
         return eventData.Substring(userGuidStartIndex, userGuidEndIndex - userGuidStartIndex);
     }
+
     public Task ProcessErrorHandler(ProcessErrorEventArgs eventArgs)
     {
         Console.WriteLine($"\tPartition '{eventArgs.PartitionId}': an unhandled exception was encountered. This was not expected to happen.");
