@@ -10,6 +10,8 @@ using System.Collections.Generic;
 
 using Azure.Messaging.EventHubs.Processor;
 using Azure.Messaging.EventHubs;
+using System.Text.Json;
+using JsonSerializer = System.Text.Json.JsonSerializer;
 
 public class YourClass
 {
@@ -49,15 +51,25 @@ public class YourClass
 
                 var blobData = await ReadJsonFromBlobAsync();
 
-                await UpdateorInsertBlobData(userList, blobData);
+                if (blobData.Count == 0)
+                {
+                    // If blobData is null, upload the userList directly
+                    var result = UploadtoBlob(userList);
+                }
+                else
+                {
+                    // If blobData is not null, update or insert the data
+                    await UpdateorInsertBlobData(userList, blobData);
+                    var result = UploadtoBlob(blobData);
+                }
 
-                var result = UploadtoBlob(blobData);
+
 
                 var pollingblobData = await ReadJsonFromBlobAsync();
 
                 List<Initialjsonstruct> unsyncedList = pollingblobData.Where(item => !item.IsSynced).ToList();
-
-                await PostEvent(unsyncedList);
+/*
+                await PostEvent(unsyncedList);*/
                 var events = await PollEventHubAsync(async eventData =>
                 {
                     // Your custom logic to handle the event (e.g., store it in a variable)
@@ -75,7 +87,9 @@ public class YourClass
 
 
 
-    public static async Task<List<string>> PollEventHubAsync(Func<string, Task> eventHandler)
+
+
+    public async Task<List<string>> PollEventHubAsync(Func<string, Task> eventHandler)
     {
         var _storageConnectionString = "DefaultEndpointsProtocol=https;AccountName=amdox;AccountKey=EsOwsWTExYkxhSDuyhUJ1Ls0yCLjKI/ULQo92BGPXs2xgyy0nQsOCqwRdY3g9FKAogOFGYV6xrzH+AStDwsqaw==;EndpointSuffix=core.windows.net";
         var BlobcontainerName = "amdox-container";
@@ -98,10 +112,17 @@ public class YourClass
         eventProcessorClient.ProcessErrorAsync += ProcessErrorHandler;
         await eventProcessorClient.StartProcessingAsync();
         Console.WriteLine("Started the processor");
-        await Task.Delay(TimeSpan.FromSeconds(30));
+        await Task.Delay(TimeSpan.FromMinutes(2));
         await eventProcessorClient.StopProcessingAsync();
         Console.WriteLine("Stop the processor");
-        Console.WriteLine("these are the received events", receivedEvents);
+
+
+        foreach (var successEvent in successEvents)
+        {
+            Console.WriteLine(successEvent);
+        }
+
+
         return receivedEvents;
 
     }
@@ -109,15 +130,114 @@ public class YourClass
 
 
 
-    static async Task ProcessEventHandler(ProcessEventArgs eventArgs)
-    {
-        Console.WriteLine("\tReceived event: {0}",
-            Encoding.UTF8.GetString(eventArgs.Data.Body.ToArray()));
+    public List<string> successEvents = new List<string>();
+    public List<string> userGuidList = new List<string>();
+    public List<Initialjsonstruct> retriveddata = new List<Initialjsonstruct>();
 
-        await eventArgs.UpdateCheckpointAsync(eventArgs.CancellationToken);
+    public async Task ProcessEventHandler(ProcessEventArgs eventArgs)
+    {
+        try
+        {
+            var eventData = Encoding.UTF8.GetString(eventArgs.Data.Body.ToArray());
+
+            // Check if the event data contains "Value":"Success"
+            if (eventData.Contains("\"Value\":\"Success\""))
+            {
+
+
+                // Add the event data to the successEvents list
+                await AddToSuccessEventsAsync(eventData);
+
+                // Asynchronously update the checkpoint
+                await eventArgs.UpdateCheckpointAsync(eventArgs.CancellationToken);
+            }
+            else
+            {
+                // Skip processing if the event does not meet the criteria
+                Console.WriteLine("\tSkipped event: {0}", eventData);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An exception occurred while processing events: {ex.Message}");
+            // Handle the exception as needed
+        }
     }
 
-    static Task ProcessErrorHandler(ProcessErrorEventArgs eventArgs)
+
+
+    public async Task AddToSuccessEventsAsync(string eventData)
+    {
+        successEvents.Add(eventData);
+
+        // Parse UserGuid from eventData and add it to the userGuidList
+        string userGuid = GetUserGuidFromEventData(eventData);
+        if (!string.IsNullOrEmpty(userGuid))
+        {
+            userGuidList.Add(userGuid);
+            Console.WriteLine("UserGuid added to the list: {0}", userGuid);
+        }
+
+        Console.WriteLine("Total success events count: {0}", successEvents.Count);
+
+
+        retriveddata = await ReadJsonFromBlobAsync();
+        string jsonRetrievedData = JsonSerializer.Serialize(retriveddata);
+        Console.WriteLine("this is retrive", jsonRetrievedData);
+        foreach (var entry in retriveddata)
+        {
+            if (userGuidList.Contains(entry.UserGuid))
+            {
+
+                entry.IsSynced = true;
+
+            }
+        }
+
+
+        await UpdateJsonInBlobAsync(retriveddata);
+    }
+
+    public async Task UpdateJsonInBlobAsync(List<Initialjsonstruct> updatedData)
+    {
+        try
+        {
+            BlobServiceClient blobServiceClient = new BlobServiceClient(blobconnectionString);
+            BlobContainerClient containerClient = blobServiceClient.GetBlobContainerClient(blobcontainerName);
+            BlobClient blobClient = containerClient.GetBlobClient(blobName);
+
+            // Serialize the updated data to JSON
+            string updatedJsonData = JsonConvert.SerializeObject(updatedData);
+
+            // Convert the JSON data to bytes
+            byte[] updatedBytes = Encoding.UTF8.GetBytes(updatedJsonData);
+
+            // Create a memory stream from the byte array
+            using (MemoryStream stream = new MemoryStream(updatedBytes))
+            {
+                // Upload the updated data to the blob, overwriting the existing content
+                await blobClient.UploadAsync(stream, true);
+
+                Console.WriteLine($"Data updated successfully in blob storage.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error updating data in blob storage: {ex.Message}");
+            throw;
+        }
+    }
+
+    public string GetUserGuidFromEventData(string eventData)
+    {
+
+        var keyIndex = eventData.IndexOf("\"Key\":\"") + 7;
+        var userGuidStartIndex = keyIndex + 1;
+        var userGuidEndIndex = eventData.IndexOf("\"", userGuidStartIndex);
+
+        return eventData.Substring(userGuidStartIndex, userGuidEndIndex - userGuidStartIndex);
+    }
+    public Task ProcessErrorHandler(ProcessErrorEventArgs eventArgs)
     {
         Console.WriteLine($"\tPartition '{eventArgs.PartitionId}': an unhandled exception was encountered. This was not expected to happen.");
 
@@ -125,6 +245,7 @@ public class YourClass
 
         return Task.CompletedTask;
     }
+
 
 
     public async Task<List<Initialjsonstruct>> ReadJsonFromBlobAsync()
@@ -148,6 +269,7 @@ public class YourClass
                     {
                         var content = await reader.ReadToEndAsync();
                         var fetcheduserList = JsonConvert.DeserializeObject<List<Initialjsonstruct>>(content);
+
 
 
                         return fetcheduserList;
@@ -189,7 +311,7 @@ public class YourClass
 
             await producerClient.SendAsync(eventsToSend.ToArray());
             await producerClient.DisposeAsync();
-            Console.WriteLine($"Successfully sent {eventsToSend.Count} events to Event Hub.");
+            Console.WriteLine($"Successfully sent {eventsToSend.Count} events to Event Hub. User update Requets");
         }
         catch (Exception ex)
         {
@@ -242,10 +364,12 @@ public class YourClass
         string jsonData = JsonConvert.SerializeObject(userList);
 
 
+
         BlobServiceClient blobServiceClient = new BlobServiceClient(blobconnectionString);
 
 
         BlobContainerClient containerClient = blobServiceClient.GetBlobContainerClient(blobcontainerName);
+
 
 
 
