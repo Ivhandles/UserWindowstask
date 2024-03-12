@@ -1,0 +1,53 @@
+[
+  {
+    "UserGuid": "123456789",
+    "B2BUserld": "B2B-001",
+    "B2BAccessCode": "ABC123",
+    "UttUID": "U123456",
+    "Type": "Customer",
+    "UserName": "user123",
+    "FirstName": "John",
+    "LastName": "Doe",
+    "FullName": "John Doe",
+    "Email": "john.doe@example.com",
+    "IsSynced": true,
+    "SyncStatus": "Synced",
+    "ModificationDate": "2022-03-12",
+    "ModificationBatch": "Batch-001",
+    "SyncDate": "2022-03-12T08:30:00"
+  },
+  {
+    "UserGuid": "987654321",
+    "B2BUserld": "B2B-002",
+    "B2BAccessCode": "XYZ789",
+    "UttUID": "U987654",
+    "Type": "Vendor",
+    "UserName": "vendor456",
+    "FirstName": "Jane",
+    "LastName": "Smith",
+    "FullName": "Jane Smith",
+    "Email": "jane.smith@example.com",
+    "IsSynced": false,
+    "SyncStatus": "Not Synced",
+    "ModificationDate": "2022-03-11",
+    "ModificationBatch": "Batch-002",
+    "SyncDate": null
+  },
+  {
+    "UserGuid": "555555555",
+    "B2BUserld": "B2B-003",
+    "B2BAccessCode": "PQR987",
+    "UttUID": "U555555",
+    "Type": "Employee",
+    "UserName": "employee789",
+    "FirstName": "Mark",
+    "LastName": "Johnson",
+    "FullName": "Mark Johnson",
+    "Email": "mark.johnson@example.com",
+    "IsSynced": true,
+    "SyncStatus": "Synced",
+    "ModificationDate": "2022-03-10",
+    "ModificationBatch": "Batch-003",
+    "SyncDate": "2022-03-10T12:45:00"
+  }
+]
