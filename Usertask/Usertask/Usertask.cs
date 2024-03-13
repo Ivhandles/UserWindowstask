@@ -52,8 +52,53 @@ public class YourClass
     }
     public void RunTask(object state)
     {
+        
+
         string filePath = @"C:\Users\ivoyant.DESKTOP-GBDO8ON\Downloads\newuserinput.json";
-        Task.Run(() => PostJsonFileAsync(filePath)).Wait();
+
+        try
+        {
+            // Read the file contents
+            string fileContents = File.ReadAllText(filePath);
+
+            // Check if the file is empty (considering whitespace)
+            if (string.IsNullOrWhiteSpace(fileContents))
+            {
+                Console.WriteLine("The file content is empty.");
+            }
+            else
+            {
+                // Attempt to parse the JSON content (optional)
+                try
+                {
+                    JsonElement jsonElement = JsonDocument.Parse(fileContents).RootElement;
+
+                    // Check if the parsed element is an empty array
+                    if (jsonElement.ValueKind == JsonValueKind.Array && jsonElement.EnumerateArray().Any() == false)
+                    {
+                        Console.WriteLine("Input File is empty array.");
+                    }
+                    else
+                    {
+                        Task.Run(() => PostJsonFileAsync(filePath)).Wait();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Error parsing JSON: {0}", ex.Message);
+                }
+            }
+        }
+        catch (FileNotFoundException ex)
+        {
+            Console.WriteLine("File not found: {0}", ex.Message);
+        }
+        catch (IOException ex)
+        {
+            Console.WriteLine("Error reading file: {0}", ex.Message);
+        }
+
+       
     }
 
     public async Task PostJsonFileAsync(string filePath)
@@ -226,7 +271,21 @@ public class YourClass
         try
         {
             BlobServiceClient blobServiceClient = new BlobServiceClient(blobConnectionString);
-            BlobContainerClient containerClient = blobServiceClient.GetBlobContainerClient(blobContainerName);
+          
+
+            // Check if the container exists
+            BlobContainerClient containerClient;
+            if (blobServiceClient.GetBlobContainerClient(blobContainerName).Exists())
+            {
+                containerClient = blobServiceClient.GetBlobContainerClient(blobContainerName);
+                Console.WriteLine("Container '{0}' already exists.", blobContainerName);
+            }
+            else
+            {
+                // Create the container if it doesn't exist
+                containerClient = blobServiceClient.CreateBlobContainer(blobContainerName);
+                Console.WriteLine("Container '{0}' created successfully.", blobContainerName);
+            }
             BlobClient blobClient = containerClient.GetBlobClient(initialblobName);
 
             // Serialize the updated data to JSON
@@ -310,7 +369,7 @@ public class YourClass
             throw;
         }
     }
-    public async Task PostEvent(List<Initialjsonstruct> userList)
+    public async Task PostEvent(List<Initialjsonstruct> unsynceduserList)
     {
         EventHubProducerClient producerClient = null;
         List<Azure.Messaging.EventHubs.EventData> eventsToSend = new List<Azure.Messaging.EventHubs.EventData>();
@@ -319,7 +378,7 @@ public class YourClass
         {
             producerClient = new EventHubProducerClient(eventHubConnectionString, eventHubName);
 
-            foreach (var user in userList)
+            foreach (var user in unsynceduserList)
             {
                 string jsonUser = JsonConvert.SerializeObject(user);
 
@@ -334,7 +393,14 @@ public class YourClass
 
             await producerClient.SendAsync(eventsToSend.ToArray());
             await producerClient.DisposeAsync();
-            Console.WriteLine($"Successfully sent {eventsToSend.Count} events to Event Hub. User update Requets");
+            if (eventsToSend.Count == 0)
+            {
+                Console.WriteLine($"No User update Requests");
+            }
+            else
+            {
+                Console.WriteLine($"Successfully sent {eventsToSend.Count} events to Event Hub. User update Requets");
+            }
         }
         catch (Exception ex)
         {
