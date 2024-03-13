@@ -12,16 +12,38 @@ using Azure.Messaging.EventHubs.Processor;
 using Azure.Messaging.EventHubs;
 using System.Text.Json;
 using JsonSerializer = System.Text.Json.JsonSerializer;
+using Microsoft.Extensions.Configuration;
 
 public class YourClass
 {
-    private const string connectionString = "Endpoint=sb://amdocs-b2b.servicebus.windows.net/;SharedAccessKeyName=amdox-eventhub;SharedAccessKey=VWZ6DMYNQvbRSSuRIghlyg36XzXWdNC72+AEhFaXWGw=;EntityPath=amdox-eventhub";
-    private const string eventHubName = "amdox-eventhub";
-    private const string blobconnectionString = "DefaultEndpointsProtocol=https;AccountName=amdox;AccountKey=EsOwsWTExYkxhSDuyhUJ1Ls0yCLjKI/ULQo92BGPXs2xgyy0nQsOCqwRdY3g9FKAogOFGYV6xrzH+AStDwsqaw==;EndpointSuffix=core.windows.net";
-    private const string blobcontainerName = "amdox-container";
-    private const string blobName = "initialdb.json";
+   
+    
+ 
+    
 
 
+    private readonly string blobConnectionString;
+    private readonly string blobContainerName;
+    private readonly string initialblobName;
+    private readonly string eventHubConnectionString;
+    private readonly string eventHubName;
+    private readonly string replyeventHubConnectionString;
+    private readonly string replyeventHubName;
+    public YourClass(IConfiguration configuration)
+    {
+        blobConnectionString = configuration["BlobStorageSettings:BlobConnectionString"];
+
+        blobContainerName = configuration["BlobStorageSettings:BlobContainerName"];
+        initialblobName = configuration["BlobStorageSettings:BlobName"];
+        eventHubConnectionString = configuration["EventHubSettings:EventHubConnectionString"];
+        eventHubName = configuration["EventHubSettings:EventHubName"];
+        replyeventHubConnectionString = configuration["ReplyEventHubSettings:ReplyEventHubConnectionString"];
+        replyeventHubName = configuration["ReplyEventHubSettings:ReplyEventHubName"];
+
+
+    }
+
+   
 
     public void StartTimer()
     {
@@ -30,7 +52,7 @@ public class YourClass
     }
     public void RunTask(object state)
     {
-        string filePath = @"C:/Users/Theje/Documents/Amdox/userinput.json";
+        string filePath = @"C:\Users\ivoyant.DESKTOP-GBDO8ON\Downloads\newuserinput.json";
         Task.Run(() => PostJsonFileAsync(filePath)).Wait();
     }
 
@@ -91,10 +113,10 @@ public class YourClass
 
     public async Task<List<string>> PollEventHubAsync(Func<string, Task> eventHandler)
     {
-        var _storageConnectionString = "DefaultEndpointsProtocol=https;AccountName=amdox;AccountKey=EsOwsWTExYkxhSDuyhUJ1Ls0yCLjKI/ULQo92BGPXs2xgyy0nQsOCqwRdY3g9FKAogOFGYV6xrzH+AStDwsqaw==;EndpointSuffix=core.windows.net";
-        var BlobcontainerName = "amdox-container";
-        var replyeventconnectionstring = "Endpoint=sb://amdocs-b2b.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=9jt/gAfCNaubzyAXQ/d0WMq2KNXLwhJpn+AEhHsewzk=";
-        var replyeventhubname = "amdox-event-statushub";
+        var _storageConnectionString = blobConnectionString;
+        var BlobcontainerName = blobContainerName;
+        var replyeventconnectionstring = replyeventHubConnectionString;
+        var replyeventhubname = replyeventHubName;
         var receivedEvents = new List<string>();
         BlobContainerClient storageClient = new
        BlobContainerClient(
@@ -203,9 +225,9 @@ public class YourClass
     {
         try
         {
-            BlobServiceClient blobServiceClient = new BlobServiceClient(blobconnectionString);
-            BlobContainerClient containerClient = blobServiceClient.GetBlobContainerClient(blobcontainerName);
-            BlobClient blobClient = containerClient.GetBlobClient(blobName);
+            BlobServiceClient blobServiceClient = new BlobServiceClient(blobConnectionString);
+            BlobContainerClient containerClient = blobServiceClient.GetBlobContainerClient(blobContainerName);
+            BlobClient blobClient = containerClient.GetBlobClient(initialblobName);
 
             // Serialize the updated data to JSON
             string updatedJsonData = JsonConvert.SerializeObject(updatedData);
@@ -255,9 +277,9 @@ public class YourClass
         {
 
 
-            BlobServiceClient blobServiceClient = new BlobServiceClient(blobconnectionString);
-            BlobContainerClient containerClient = blobServiceClient.GetBlobContainerClient(blobcontainerName);
-            BlobClient blobClient = containerClient.GetBlobClient(blobName);
+            BlobServiceClient blobServiceClient = new BlobServiceClient(blobConnectionString);
+            BlobContainerClient containerClient = blobServiceClient.GetBlobContainerClient(blobContainerName);
+            BlobClient blobClient = containerClient.GetBlobClient(initialblobName);
 
             if (await blobClient.ExistsAsync())
             {
@@ -295,7 +317,7 @@ public class YourClass
 
         try
         {
-            producerClient = new EventHubProducerClient(connectionString, eventHubName);
+            producerClient = new EventHubProducerClient(eventHubConnectionString, eventHubName);
 
             foreach (var user in userList)
             {
@@ -366,15 +388,15 @@ public class YourClass
 
 
 
-        BlobServiceClient blobServiceClient = new BlobServiceClient(blobconnectionString);
+        BlobServiceClient blobServiceClient = new BlobServiceClient(blobConnectionString);
 
 
-        BlobContainerClient containerClient = blobServiceClient.GetBlobContainerClient(blobcontainerName);
+        BlobContainerClient containerClient = blobServiceClient.GetBlobContainerClient(blobContainerName);
 
 
 
 
-        BlobClient blobClient = containerClient.GetBlobClient(blobName);
+        BlobClient blobClient = containerClient.GetBlobClient(initialblobName);
 
         byte[] bytes = System.Text.Encoding.UTF8.GetBytes(jsonData);
 
