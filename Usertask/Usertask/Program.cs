@@ -8,7 +8,7 @@ class Program
             .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
             .Build();
 
-        YourClass userTaskInstance = new YourClass(configuration);
+        UserTask userTaskInstance = new UserTask(configuration);
         userTaskInstance.StartTimer();
 
         // Keep the console window open

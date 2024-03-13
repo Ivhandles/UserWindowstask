@@ -14,14 +14,9 @@ using System.Text.Json;
 using JsonSerializer = System.Text.Json.JsonSerializer;
 using Microsoft.Extensions.Configuration;
 
-public class YourClass
+public class UserTask
 {
-   
-    
- 
-    
-
-
+  
     private readonly string blobConnectionString;
     private readonly string blobContainerName;
     private readonly string initialblobName;
@@ -29,7 +24,7 @@ public class YourClass
     private readonly string eventHubName;
     private readonly string replyeventHubConnectionString;
     private readonly string replyeventHubName;
-    public YourClass(IConfiguration configuration)
+    public UserTask(IConfiguration configuration)
     {
         blobConnectionString = configuration["BlobStorageSettings:BlobConnectionString"];
 
@@ -52,9 +47,9 @@ public class YourClass
     }
     public void RunTask(object state)
     {
-        
 
-        string filePath = @"C:\Users\ivoyant.DESKTOP-GBDO8ON\Downloads\newuserinput.json";
+
+        string filePath = @"C:/Users/Theje/Documents/Amdox/userinput.json";
 
         try
         {
@@ -278,14 +273,15 @@ public class YourClass
             if (blobServiceClient.GetBlobContainerClient(blobContainerName).Exists())
             {
                 containerClient = blobServiceClient.GetBlobContainerClient(blobContainerName);
-                Console.WriteLine("Container '{0}' already exists.", blobContainerName);
+               
             }
             else
             {
                 // Create the container if it doesn't exist
                 containerClient = blobServiceClient.CreateBlobContainer(blobContainerName);
-                Console.WriteLine("Container '{0}' created successfully.", blobContainerName);
+               
             }
+
             BlobClient blobClient = containerClient.GetBlobClient(initialblobName);
 
             // Serialize the updated data to JSON
